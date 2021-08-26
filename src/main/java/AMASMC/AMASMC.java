@@ -1,23 +1,20 @@
 package AMASMC;
 
 import AMASMC.AMASMC_Function.AMASMC_Function;
-import AMASMC.AMASMC_Function.AMSMC_Variable;
+import AMASMC.AMASMC_Function.AMASMC_Variable;
 import AMASMC.AMASMC_Messenger.AMASMC_Messenger;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.io.*;
+import java.util.*;
 
 public class AMASMC
 {
     private final int maxFunctionNameSize = 1024;
+    private int maxVarilableNameSize = 1024;
+
+    private Map<String, Integer> jumpTags = new HashMap<String, Integer>();
+    private AMASMC_Variable[] globalVarilables;
+    private AMASMC_Function[] globalFunctions;
 
     public String getCompilable()
     {
@@ -31,28 +28,7 @@ public class AMASMC
 
     private String compilable;
 
-    public static void main(String[] args) throws IOException
-    {
-        String inputFileName = args[0];
-
-        AMASMC compiler = new AMASMC(inputFileName);
-
-        AMASMC_Messenger.debug(compiler.getCompilable());
-
-        AMASMC_Function[] functions = compiler.extractCompilableFunctions();
-
-        for (int i = 0; i < functions.length; i++)
-        {
-            AMASMC_Messenger.debug(functions[i].getName());
-            AMASMC_Messenger.debug(functions[i].getBody());
-            AMASMC_Messenger.debug(Arrays.toString(functions[i].getArgs()));
-            AMASMC_Messenger.debug("");
-        }
-
-        AMASMC_Messenger.debug(compiler.getCompilable());
-    }
-
-    public AMASMC(String compilableFilaName) throws FileNotFoundException
+    public AMASMC(String compilableFilaName) throws IOException
     {
         if(!compilableFilaName.toUpperCase().endsWith("AMASM"))
         {
@@ -62,7 +38,7 @@ public class AMASMC
         FileInputStream compilable;
         try
         {
-            this.compilable = formatCompilable(new FileInputStream(compilableFilaName));
+            this.compilable = new String(new FileInputStream(compilableFilaName).readAllBytes());
         } catch (FileNotFoundException e)
         {
             AMASMC_Messenger.error("File "+compilableFilaName+" not found");
@@ -71,10 +47,64 @@ public class AMASMC
         {
             e.printStackTrace();
         }
+
+//        AMASMC_Messenger.debug("Compilable:\n" + this.getCompilable());
+
+        String validationResult = validateCompilable();
+
+        if(validationResult.startsWith("Validation Error:"))
+        {
+            AMASMC_Messenger.error(validationResult);
+            return;
+        }
+        else AMASMC_Messenger.debug("Validation passed successfully!");
+
+        formatCompilable();
+
+        this.globalFunctions = this.extractCompilableFunctions();
+
+        AMASMC_Messenger.debug("Found global functions:");
+
+        for (int i = 0; i < this.globalFunctions.length; i++)
+        {
+            AMASMC_Messenger.debug(globalFunctions[i].getName());
+            AMASMC_Messenger.debug(globalFunctions[i].getBody());
+            AMASMC_Messenger.debug(Arrays.toString(globalFunctions[i].getArgs()));
+            AMASMC_Messenger.debug("");
+        }
+
+        AMASMC_Messenger.debug(this.getCompilable());
+
+        this.globalVarilables = extractGlobalVarilables();
+
+        AMASMC_Messenger.debug("Found global variables:");
+        for (int i = 0; i < this.globalVarilables.length; i++)
+        {
+            AMASMC_Messenger.debug(this.globalVarilables[i].toString());
+        };
+
+
     }
 
-    private String formatCompilable(FileInputStream compilable) throws IOException
+    private String validateCompilable()
     {
+        ArrayList<Integer> unclosedBrackets = new ArrayList<>();
+        for (int i = 0; i < this.compilable.split("\n").length; ++i)
+        {
+            for (int j = 0; j < this.compilable.split("\n")[i].length(); ++j)
+            {
+                if(this.compilable.split("\n")[i].charAt(j) == '{')unclosedBrackets.add(i);
+                if(this.compilable.split("\n")[i].charAt(j) == '}')unclosedBrackets.remove(unclosedBrackets.size()-1);
+            };
+        }
+        if(unclosedBrackets.size() > 0) return "Validation Error: Unclosed bracket detecled on line " +
+                                                (unclosedBrackets.get(unclosedBrackets.size()-1)+1);
+        else return "No any problems found!";
+    };
+
+    private void formatCompilable() throws IOException
+    {
+        InputStream compilable = new ByteArrayInputStream(this.compilable.getBytes());
         String result = new String();
         for(; compilable.available() > 0 ;)
         {
@@ -83,10 +113,7 @@ public class AMASMC
             {
                 try
                 {
-//                    AMASMC_Messenger.debug(String.valueOf(((char) data[0])));
-//                    AMASMC_Messenger.debug(String.valueOf(((char) data[1])));
-//                    AMASMC_Messenger.debug(String.valueOf(((char) data[2])));
-//                    AMASMC_Messenger.debug(String.valueOf(((char) data[3])));
+
                 } catch (ArrayIndexOutOfBoundsException ignored){};
 
                 if (data.length >= 3 && ((char) data[0]) == '/' && ((char) data[1]) == '*' && ((char) data[2]) == '*')
@@ -113,7 +140,7 @@ public class AMASMC
             }
         };
 
-        return result.replaceAll("\n", "").replace(" ", "");
+        this.compilable = result.replaceAll("\n", "").replace(" ", "");
     }
 
 
@@ -166,14 +193,14 @@ public class AMASMC
 
                 sb.setCharAt(i, ' ');
 
-                List<AMSMC_Variable> fArgsFinal = new ArrayList<>();
+                List<AMASMC_Variable> fArgsFinal = new ArrayList<>();
 
                 for (int k = 0; k < fArgs.length; k++)
                 {
-                    fArgsFinal.add( new AMSMC_Variable(fArgs[k]) );
+                    fArgsFinal.add( new AMASMC_Variable(fArgs[k]) );
                 }
 
-                result.add( new AMASMC_Function(fName, fBody, fArgsFinal.toArray(new AMSMC_Variable[0])) );
+                result.add( new AMASMC_Function(fName, fBody, fArgsFinal.toArray(new AMASMC_Variable[0])) );
                 this.compilable = sb.toString();
             } else
             {
@@ -182,4 +209,62 @@ public class AMASMC
         this.compilable = compilable.replaceAll(" ", "");
         return result.toArray(new AMASMC_Function[0]);
     };
+
+    private AMASMC_Variable[] extractGlobalVarilables()
+    {
+        ArrayList<AMASMC_Variable> result = new ArrayList<>();
+        String[] compilableSemiconsDevided = this.compilable.split(";");
+        for (int i = 0; i < compilableSemiconsDevided.length; i++)
+        {
+            if(!compilableSemiconsDevided[i].startsWith("0") &&
+               !compilableSemiconsDevided[i].startsWith("1") &&
+               !compilableSemiconsDevided[i].startsWith("2") &&
+               !compilableSemiconsDevided[i].startsWith("3") &&
+               !compilableSemiconsDevided[i].startsWith("4") &&
+               !compilableSemiconsDevided[i].startsWith("5") &&
+               !compilableSemiconsDevided[i].startsWith("6") &&
+               !compilableSemiconsDevided[i].startsWith("7") &&
+               !compilableSemiconsDevided[i].startsWith("8") &&
+               !compilableSemiconsDevided[i].startsWith("9") &&
+                compilableSemiconsDevided[i].length() > 0)
+            {
+                String vName = "";
+                int j = 0;
+                for(;j<compilableSemiconsDevided[i].length() &&
+                                compilableSemiconsDevided[i].charAt(j) != '=' &&
+                                compilableSemiconsDevided[i].charAt(j) != ';' &&
+                                j<this.maxVarilableNameSize;j++)
+                {
+                    vName += compilableSemiconsDevided[i].charAt(j);
+                };
+
+                String vVal = "";
+
+                if(compilableSemiconsDevided[i].charAt(j) == '=')
+                {
+                    for(;j<compilableSemiconsDevided[i].length() &&
+                           compilableSemiconsDevided[i].charAt(j) != ';' &&
+                           j<this.maxVarilableNameSize;j++)
+                    {
+                        vVal += compilableSemiconsDevided[i].charAt(j);
+                    };
+                };
+
+                result.add(new AMASMC_Variable(vName, vVal));
+            };
+        }
+        return result.toArray(new AMASMC_Variable[0]);
+    }
+
+    private void compileFunctionBody(AMASMC_Function function)
+    {
+        String[] commands = function.getBody().split(";");
+    };
+
+    public static void main(String[] args) throws IOException
+    {
+        String inputFileName = args[0];
+
+        AMASMC compiler = new AMASMC(inputFileName);
+    }
 }

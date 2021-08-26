@@ -5,7 +5,7 @@ public class AMASMC_Function
     String name;
     String body;
     String compiled;
-    AMSMC_Variable[] args;
+    AMASMC_Variable[] args;
 
     public String getCompiled()
     {
@@ -17,17 +17,17 @@ public class AMASMC_Function
         this.compiled = compiled;
     }
 
-    public AMSMC_Variable[] getArgs()
+    public AMASMC_Variable[] getArgs()
     {
         return args;
     }
 
-    public void setArgs(AMSMC_Variable[] args)
+    public void setArgs(AMASMC_Variable[] args)
     {
         this.args = args;
     }
 
-    public AMASMC_Function(String name, String body, AMSMC_Variable[] args)
+    public AMASMC_Function(String name, String body, AMASMC_Variable[] args)
     {
         this.name = name;
         this.body = body;
