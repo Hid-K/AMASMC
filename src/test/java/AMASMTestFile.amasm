@@ -1,12 +1,22 @@
 /**
-ubind @mono
-ucontrol move @thisx @thisy 0 0 0
-ulocate ore core true @scrap scrX scrY scrapFound building
-ucontrol move scrY scrY 0 0 0
-ucontrol mine scrX scrY 0 0 0
-ucontrol move @thisx @thisy 0 0 0
-ucontrol itemDrop vault1 20 0 0 0
-jump 1 always x false
+read result cell1 0
+write result cell1 0
+draw clear 0 0 0 0 0 0
+print "frog"
+drawflush display1
+printflush message1
+getlink result 0
+control enabled block1 0 0 0 0
+radar enemy any any distance turret1 1 result
+sensor result block1 @copper
+set result 0
+op add result a b
+end
+jump -1 notEqual x false
+ubind @poly
+ucontrol move 0 0 0 0 0
+uradar enemy any any distance 0 1 result
+ulocate building core true @copper outx outy found building
 */
 
 add( a , b )
@@ -20,6 +30,9 @@ sub( a , b )
 };
 
 c = 10;
+Num = 10332;
+Str = fafa;
+Float = 0.110;
 
 main()
 {

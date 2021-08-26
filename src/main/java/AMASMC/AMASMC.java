@@ -13,6 +13,7 @@ public class AMASMC
     private int maxVarilableNameSize = 1024;
 
     private Map<String, Integer> jumpTags = new HashMap<String, Integer>();
+    Map<String, String> keywords = new HashMap<>();
     private AMASMC_Variable[] globalVarilables;
     private AMASMC_Function[] globalFunctions;
 
@@ -30,6 +31,8 @@ public class AMASMC
 
     public AMASMC(String compilableFilaName) throws IOException
     {
+        this.keywords.put("@thisx", "getThisX()");
+        this.keywords.put("@thisy", "getThisY()");
         if(!compilableFilaName.toUpperCase().endsWith("AMASM"))
         {
             AMASMC_Messenger.warning("File " + compilableFilaName + "ends not with \".amasm\", but should");
@@ -48,8 +51,6 @@ public class AMASMC
             e.printStackTrace();
         }
 
-//        AMASMC_Messenger.debug("Compilable:\n" + this.getCompilable());
-
         String validationResult = validateCompilable();
 
         if(validationResult.startsWith("Validation Error:"))
@@ -60,6 +61,8 @@ public class AMASMC
         else AMASMC_Messenger.debug("Validation passed successfully!");
 
         formatCompilable();
+
+        AMASMC_Messenger.debug("Formatted compilable:\n" + this.getCompilable());
 
         this.globalFunctions = this.extractCompilableFunctions();
 
@@ -83,7 +86,11 @@ public class AMASMC
             AMASMC_Messenger.debug(this.globalVarilables[i].toString());
         };
 
-
+        AMASMC_Messenger.debug("Compiling functions....");
+        for (int i = 0; i < this.globalFunctions.length; i++)
+        {
+            compileFunctionBody(this.globalFunctions[i]);
+        }
     }
 
     private String validateCompilable()
@@ -100,6 +107,20 @@ public class AMASMC
         if(unclosedBrackets.size() > 0) return "Validation Error: Unclosed bracket detecled on line " +
                                                 (unclosedBrackets.get(unclosedBrackets.size()-1)+1);
         else return "No any problems found!";
+    };
+
+    private void replaceKeywords()
+    {
+        for (int i = 0; i < this.compilable.length(); i++)
+        {
+            for (int j = 0; j < this.keywords.size(); j++)
+            {
+                for (Map.Entry<String, String> entry : this.keywords.entrySet()) {
+                    String keyword = entry.getKey();
+                    this.compilable = this.compilable.replace(keyword, this.keywords.get(keyword));
+                }
+            }
+        }
     };
 
     private void formatCompilable() throws IOException
@@ -141,6 +162,7 @@ public class AMASMC
         };
 
         this.compilable = result.replaceAll("\n", "").replace(" ", "");
+        replaceKeywords();
     }
 
 
@@ -216,17 +238,7 @@ public class AMASMC
         String[] compilableSemiconsDevided = this.compilable.split(";");
         for (int i = 0; i < compilableSemiconsDevided.length; i++)
         {
-            if(!compilableSemiconsDevided[i].startsWith("0") &&
-               !compilableSemiconsDevided[i].startsWith("1") &&
-               !compilableSemiconsDevided[i].startsWith("2") &&
-               !compilableSemiconsDevided[i].startsWith("3") &&
-               !compilableSemiconsDevided[i].startsWith("4") &&
-               !compilableSemiconsDevided[i].startsWith("5") &&
-               !compilableSemiconsDevided[i].startsWith("6") &&
-               !compilableSemiconsDevided[i].startsWith("7") &&
-               !compilableSemiconsDevided[i].startsWith("8") &&
-               !compilableSemiconsDevided[i].startsWith("9") &&
-                compilableSemiconsDevided[i].length() > 0)
+            if(compilableSemiconsDevided[i].length() > 0)
             {
                 String vName = "";
                 int j = 0;
@@ -242,6 +254,7 @@ public class AMASMC
 
                 if(compilableSemiconsDevided[i].charAt(j) == '=')
                 {
+                    ++j;
                     for(;j<compilableSemiconsDevided[i].length() &&
                            compilableSemiconsDevided[i].charAt(j) != ';' &&
                            j<this.maxVarilableNameSize;j++)
@@ -258,8 +271,74 @@ public class AMASMC
 
     private void compileFunctionBody(AMASMC_Function function)
     {
-        String[] commands = function.getBody().split(";");
+        ArrayList<AMASMC_Variable> localVariables = new ArrayList<>();
+        String[] compilableSemiconsDevided = function.getBody().split(";");
+        for (int i = 0; i < compilableSemiconsDevided.length; i++)
+        {
+            if(compilableSemiconsDevided[i].length() > 0)
+            {
+                String vName = "";
+                int j = 0;
+                for(;   j < compilableSemiconsDevided[i].length() &&
+                        compilableSemiconsDevided[i].charAt(j) != '=' &&
+                        compilableSemiconsDevided[i].charAt(j) != ';' &&
+                        j < this.maxVarilableNameSize;j++)
+                {
+                    vName += compilableSemiconsDevided[i].charAt(j);
+                };
+
+                if(checkAlphabet(vName, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+                {
+                    String vVal = "";
+
+                    if (j < compilableSemiconsDevided[i].length() && compilableSemiconsDevided[i].charAt(j) == '=')
+                    {
+                        ++j;
+                        for (; j < compilableSemiconsDevided[i].length() &&
+                                compilableSemiconsDevided[i].charAt(j) != ';' &&
+                                j < this.maxVarilableNameSize; j++)
+                        {
+                            vVal += compilableSemiconsDevided[i].charAt(j);
+                        };
+                    };
+
+                    localVariables.add(new AMASMC_Variable(vName, vVal));
+                }
+            };
+        }
+        AMASMC_Messenger.debug(Arrays.toString(localVariables.toArray(new AMASMC_Variable[0])));
     };
+
+    private boolean checkAlphabet( String alphabet, String desiredAlphabet )
+    {
+
+        for(int i = 0; i < alphabet.length(); ++i)
+        {
+            boolean alphabetValid = false;
+            for(int j = 0; j < desiredAlphabet.length(); ++j)
+            {
+                if (alphabet.charAt(i) == desiredAlphabet.charAt(j))
+                {
+                    alphabetValid = true;
+                    break;
+                }
+            }
+            if(!alphabetValid) return false;
+        }
+        return true;
+    }
+
+    private String getStringAlphabet(final String str)
+    {
+        StringBuilder result = new StringBuilder();
+        for(int i = 0; i < str.length(); ++i)
+        {
+            boolean notInResult = true;
+            for(int j = 0; j < result.length() && notInResult; ++j) notInResult = (str.charAt(i) == result.charAt(j));
+            if(notInResult) result.append(str.charAt(i));
+        }
+        return result.toString();
+    }
 
     public static void main(String[] args) throws IOException
     {
