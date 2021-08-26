@@ -1,0 +1,30 @@
+/**
+ubind @mono
+ucontrol move @thisx @thisy 0 0 0
+ulocate ore core true @scrap scrX scrY scrapFound building
+ucontrol move scrY scrY 0 0 0
+ucontrol mine scrX scrY 0 0 0
+ucontrol move @thisx @thisy 0 0 0
+ucontrol itemDrop vault1 20 0 0 0
+jump 1 always x false
+*/
+
+add( a , b )
+{
+    return(a+b);
+};
+
+sub( a , b )
+{
+  return(a-b);
+};
+
+c = 10;
+
+main()
+{
+    a = @thisx;
+    b = sub(a, @thisy);
+    print(b);
+    printFlush(message1);
+};
